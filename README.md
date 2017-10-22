@@ -9,5 +9,5 @@
 Examples are in ***examples_create.py*** and ***examples_load.py***, just run it!
 
 ## Prerequisites
-- tensorflow r1.2
+- tensorflow >= r1.2
 - python 2.7
