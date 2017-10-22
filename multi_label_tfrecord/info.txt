@@ -1,0 +1,4 @@
+[{"dtype_or_format": "png", "shape": [128, 128, 3], "name": "img"},
+ {"dtype_or_format": "int64", "shape": [], "name": "class"},
+ {"dtype_or_format": "float32", "shape": [10], "name": "targets"},
+ {"compression_type": 2}]
