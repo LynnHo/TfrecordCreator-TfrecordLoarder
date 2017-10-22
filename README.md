@@ -2,8 +2,9 @@
 
 ## Features
 1. Convenient functions for converting datasets to tfrecord and loading it.
-1. Support image encoding (jpg or png), which makes your tfrecord smaller.
 1. Support classification, regression and multiple label tasks.
+1. Support image encoding (jpg or png), which makes your tfrecord smaller.
+1. Support preprocessing functions for data and labels.
 
 ## Usage
 Examples are in ***examples_create.py*** and ***examples_load.py***, just run it!
