@@ -1,3 +1,0 @@
-[{"dtype_or_format": "uint8", "shape": [128, 128, 3], "name": "img"},
- {"dtype_or_format": "int64", "shape": [], "name": "class"},
- {"compression_type": 0}]

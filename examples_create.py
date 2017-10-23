@@ -28,8 +28,6 @@ regression_labels = list(np.random.rand(len(imgs), 10))
 
 def classification():
     print('Create tfrecord for classification!')
-    if not os.path.exists('classification_tfrecord'):
-        os.mkdir('classification_tfrecord')
 
     # create a writer
     writer = tfrecord.ImageLablePairTfrecordCreator(
@@ -49,8 +47,6 @@ def classification():
 
 def regression():
     print('Create tfrecord for regression!')
-    if not os.path.exists('regression_tfrecord'):
-        os.mkdir('regression_tfrecord')
 
     # create a writer
     writer = tfrecord.ImageLablePairTfrecordCreator(
@@ -71,8 +67,6 @@ def regression():
 
 def multi_label():
     print('Create tfrecord for multiple label task!')
-    if not os.path.exists('multi_label_tfrecord'):
-        os.mkdir('multi_label_tfrecord')
 
     # create a writer
     writer = tfrecord.BytesTfrecordCreator(
