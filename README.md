@@ -3,7 +3,7 @@
 
 ## Features
 1. Support classification, regression and multiple label tasks.
-1. Support image encoding (jpg or png) and decoding, which makes your tfrecord smaller.
+1. Support image encoding (jpg or png) and decoding, which makes the tfrecord file smaller.
 1. Support preprocessing functions for data and labels.
 
 ## Usage
