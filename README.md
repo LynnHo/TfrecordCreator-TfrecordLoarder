@@ -7,7 +7,7 @@
 1. Support preprocessing functions for data and labels.
 
 ## Usage
-- create a tfrecord and add an sample
+- create a tfrecord and add a sample
     ```python
     writer = tfrecord.ImageLablePairTfrecordCreator(
         save_path='classification_tfrecord',
