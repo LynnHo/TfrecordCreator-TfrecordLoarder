@@ -31,7 +31,7 @@ def classification():
 
     # create a writer
     writer = tfrecord.ImageLablePairTfrecordCreator(
-        save_dir='classification_tfrecord',
+        save_path='classification_tfrecord',
         label_type='classification',
         encode_type=None,
         data_name='img',
@@ -50,7 +50,7 @@ def regression():
 
     # create a writer
     writer = tfrecord.ImageLablePairTfrecordCreator(
-        save_dir='regression_tfrecord',
+        save_path='regression_tfrecord',
         label_type='regression',
         encode_type='jpg',
         quality=80,
@@ -70,7 +70,7 @@ def multi_label():
 
     # create a writer
     writer = tfrecord.BytesTfrecordCreator(
-        save_dir='multi_label_tfrecord',
+        save_path='multi_label_tfrecord',
         compression_type=2)
 
     # dump data and label

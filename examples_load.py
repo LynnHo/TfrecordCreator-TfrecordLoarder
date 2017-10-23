@@ -14,7 +14,7 @@ def load_classification():
         tfrecord_path='classification_tfrecord',
         batch_size=5,
         shuffle=True,
-        num_threads=4)  # num_threads should be 1 for not shuffle
+        num_threads=4)
     fields = TR.fields()
     print('fields:', fields)
 

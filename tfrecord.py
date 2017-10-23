@@ -33,18 +33,18 @@ class BytesTfrecordCreator(object):
         2: GZIP
     """
 
-    def __init__(self, save_dir, compression_type=0):
-        tf_record_path = os.path.join(save_dir, 'data.tfrecord')
-        if os.path.exists(save_dir):
+    def __init__(self, save_path, compression_type=0):
+        tf_record_path = os.path.join(save_path, 'data.tfrecord')
+        if os.path.exists(save_path):
             if os.path.exists(tf_record_path):
                 raise Exception('%s exists!' % tf_record_path)
         else:
-            os.makedirs(save_dir)
+            os.makedirs(save_path)
 
         options = tf.python_io.TFRecordOptions(compression_type)
         self.writer = tf.python_io.TFRecordWriter(
             tf_record_path, options)
-        self.info_f = open(os.path.join(save_dir, 'info.txt'), 'w')
+        self.info_f = open(os.path.join(save_path, 'info.txt'), 'w')
 
         self.feature_names = None
         self.info_names = []  # is the same as self.feature_names except for item order
@@ -158,9 +158,9 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
         2: GZIP
     """
 
-    def __init__(self, save_dir, data_shape, data_dtype_or_format, label_type,
+    def __init__(self, save_path, data_shape, data_dtype_or_format, label_type,
                  label_shape=None, data_name='data', label_name='label', compression_type=0):
-        super(DataLablePairTfrecordCreator, self).__init__(save_dir, compression_type)
+        super(DataLablePairTfrecordCreator, self).__init__(save_path, compression_type)
 
         assert label_type in ['classification', 'regression'], \
             "`label_type` should be 'classification' or 'regression'!"
@@ -234,10 +234,10 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         2: GZIP
     """
 
-    def __init__(self, save_dir, label_type, encode_type, quality=95,
+    def __init__(self, save_path, label_type, encode_type, quality=95,
                  data_name='data', label_name='label', compression_type=0):
         super(ImageLablePairTfrecordCreator, self).__init__(
-            save_dir, None, None, label_type, (), data_name, label_name, compression_type)
+            save_path, None, None, label_type, (), data_name, label_name, compression_type)
 
         if isinstance(encode_type, str):
             encode_type = encode_type.lower()
