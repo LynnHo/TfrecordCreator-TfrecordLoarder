@@ -34,9 +34,16 @@ class BytesTfrecordCreator(object):
     """
 
     def __init__(self, save_dir, compression_type=0):
+        tf_record_path = os.path.join(save_dir, 'data.tfrecord')
+        if os.path.exists(save_dir):
+            if os.path.exists(tf_record_path):
+                raise Exception('%s exists!' % tf_record_path)
+        else:
+            os.makedirs(save_dir)
+
         options = tf.python_io.TFRecordOptions(compression_type)
         self.writer = tf.python_io.TFRecordWriter(
-            os.path.join(save_dir, 'data.tfrecord'), options)
+            tf_record_path, options)
         self.info_f = open(os.path.join(save_dir, 'info.txt'), 'w')
 
         self.feature_names = None
