@@ -49,7 +49,7 @@
     img_batch, class_batch = TR.batch(['img', 'class'])
     ```
 
-Examples are in ***examples_create.py*** and ***examples_load.py***, just run it!
+ - More examples are in ***examples_create.py*** and ***examples_load.py***, just run it!
 
 ## Prerequisites
 - tensorflow >= r1.2
