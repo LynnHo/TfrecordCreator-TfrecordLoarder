@@ -10,7 +10,7 @@
 - create a tfrecord and add an sample
     ```python
     writer = tfrecord.ImageLablePairTfrecordCreator(
-        save_dir='classification_tfrecord',
+        save_path='classification_tfrecord',
         label_type='classification',
         encode_type=None,
         data_name='img',
