@@ -31,23 +31,23 @@
     img_batch, class_batch = TR.batch(['img', 'class'])
     ```
     - preprocessing
-    ```python
-    def img_preprecess_fn(img):
-        img = tf.image.resize_images(img, [256, 128])
-        img = img / 255
-        return img
+        ```python
+        def img_preprecess_fn(img):
+            img = tf.image.resize_images(img, [256, 128])
+            img = img / 255
+            return img
 
-    TR = tfrecord.TfrecordData(
-        tfrecord_path='classification_tfrecord',
-        batch_size=5,
-        shuffle=True,
-        num_threads=4,
-        preprocess_fns={
-            'img': img_preprecess_fn
-        })
+        TR = tfrecord.TfrecordData(
+            tfrecord_path='classification_tfrecord',
+            batch_size=5,
+            shuffle=True,
+            num_threads=4,
+            preprocess_fns={
+                'img': img_preprecess_fn
+            })
 
-    img_batch, class_batch = TR.batch(['img', 'class'])
-    ```
+        img_batch, class_batch = TR.batch(['img', 'class'])
+        ```
 
  - More examples are in ***examples_create.py*** and ***examples_load.py***, just run it!
 
