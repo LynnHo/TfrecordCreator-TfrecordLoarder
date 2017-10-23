@@ -31,8 +31,7 @@ def load_regression():
     TR = tfrecord.TfrecordData(
         tfrecord_path='regression_tfrecord',
         batch_size=5,
-        shuffle=False,
-        num_threads=1)  # num_threads should be 1 for not shuffle
+        shuffle=False)
     fields = TR.fields()
     print('fields:', fields)
 
@@ -56,10 +55,9 @@ def load_multi_label():
         tfrecord_path='multi_label_tfrecord',
         batch_size=5,
         shuffle=False,
-        num_threads=1,
         preprocess_fns={
             'img': img_preprecess_fn
-        })  # num_threads should be 1 for not shuffle
+        })
     fields = TR.fields()
     print('fields:', fields)
 
