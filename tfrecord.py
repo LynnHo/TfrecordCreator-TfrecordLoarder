@@ -33,10 +33,10 @@ class BytesTfrecordCreator(object):
         2: GZIP
     """
 
-    def __init__(self, save_path, compression_type=0):
+    def __init__(self, save_path, compression_type=0, overwrite_existing=False):
         tf_record_path = os.path.join(save_path, 'data.tfrecord')
         if os.path.exists(save_path):
-            if os.path.exists(tf_record_path):
+            if os.path.exists(tf_record_path) and not overwrite_existing:
                 raise Exception('%s exists!' % tf_record_path)
         else:
             os.makedirs(save_path)
@@ -147,10 +147,10 @@ class BytesTfrecordCreator(object):
 class DataLablePairTfrecordCreator(BytesTfrecordCreator):
     """DataLablePairTfrecordCreator.
 
-    `label_type`:
-        'classification' -> scalar int64 label
-        'regression'     -> scalar or vector float32 label
-    `label_shape`: if `label_type` is 'regression', then `label_shape` should be given
+    If `data_shape` is None, then the `data` to be added should be given as
+    numpy array, and the shape and dtype of `data` will be inferred.
+    If `data_shape` is not None, `data` should be given as byte string,
+    and `data_dtype_or_format` should also be given.
 
     `compression_type`:
         0: NONE
@@ -158,72 +158,79 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
         2: GZIP
     """
 
-    def __init__(self, save_path, data_shape, data_dtype_or_format, label_type,
-                 label_shape=None, data_name='data', label_name='label', compression_type=0):
-        super(DataLablePairTfrecordCreator, self).__init__(save_path, compression_type)
-
-        assert label_type in ['classification', 'regression'], \
-            "`label_type` should be 'classification' or 'regression'!"
-        if label_type is 'regression' and label_shape is None:
-            raise Exception('Regression: `label_shape` should be given!')
+    def __init__(self, save_path, data_shape=None, data_dtype_or_format=None,
+                 data_name='data', label_name='label',
+                 compression_type=0, overwrite_existing=False):
+        super(DataLablePairTfrecordCreator, self).__init__(save_path,
+                                                           compression_type,
+                                                           overwrite_existing)
+        if data_shape is not None:
+            assert data_dtype_or_format is not None, \
+                '`data_dtype_or_format` should be given when `data_shape` is given!'
+            self.check_data = False
+        else:
+            self.check_data = True
 
         self.data_shape = data_shape
         self.data_dtype_or_format = data_dtype_or_format
+        self.label_shape = None
+        self.label_dtype = None
         self.data_name = data_name
-        self.label_type = label_type
-        self.label_shape = label_shape
         self.label_name = label_name
+        self.info_built = False
 
     def add(self, data, label):
         """Add example.
 
-        `data` and `label` can already be byte string or numpy array,
-        the function will convert them to byte string anyway
+        If `self.data_shape` is initialized as None, then the `data` to be
+        added should be given as numpy array, and the shape and dtype of `data`
+        will be inferred.
+        If `self.data_shape` is not initialized as None, `data` should be given as
+        byte string.
 
-        Note: no shape of dtype check if byte string is given, which is unsave
+        `label` should be a numpy array, shape and dtype will be inferred.
         """
-        assert isinstance(data, (str, np.ndarray)) and \
-            isinstance(label, (str, np.ndarray)), \
-            '`data` and `label` should be byte string or numpy array!'
-        if isinstance(data, np.ndarray):
-            assert data.dtype.name == self.data_dtype_or_format, \
-                'dtype of `data` should be %s!' % self.data_dtype_or_format
+        if self.check_data:
+            assert isinstance(data, np.ndarray), \
+                '`data` should be numpy array!'
+        else:
+            assert isinstance(data, str), \
+                '`data` should be byte string!'
+        assert isinstance(label, np.ndarray), '`label` should be numpy array!'
+
+        if not self.info_built:
+            if self.data_shape is None:
+                self.data_shape = data.shape
+                self.data_dtype_or_format = data.dtype.name
+            self.label_shape = label.shape
+            self.label_dtype = label.dtype.name
+            self.info_built = True
+
+        if self.check_data:
             assert data.shape == tuple(self.data_shape), \
                 'shape of `data` should be %s!' % str(tuple(self.data_shape))
+            assert data.dtype.name == self.data_dtype_or_format, \
+                'dtype of `data` should be %s!' % self.data_dtype_or_format
             data = data.tobytes()
-        if isinstance(label, np.ndarray):
-            if self.label_type == 'classification':
-                assert label.dtype.name == 'int64', \
-                    'Classification: dtype of `label` should be int64!'
-                assert label.shape == (), \
-                    'Classification: `label` should be a scalar!'
-            elif self.label_type == 'regression':
-                assert label.dtype.name == 'float32', \
-                    'Regression: dtype of `label` should be float32!'
-                assert label.shape == tuple(self.label_shape), \
-                    'Regression: shape of `label` should be %s!' \
-                    % str(tuple(self.label_shape))
-            label = label.tobytes()
+
+        assert label.shape == tuple(self.label_shape), \
+            'shape of `label` should be %s!' % str(tuple(self.label_shape))
+        assert label.dtype.name == self.label_dtype, \
+            'dtype of `label` should be %s!' % self.label_dtype
+        label = label.tobytes()
 
         super(DataLablePairTfrecordCreator, self).add({self.data_name: data,
                                                        self.label_name: label})
 
     def close(self):
         self.add_info(self.data_name, self.data_dtype_or_format, self.data_shape)
-        if self.label_type == 'classification':
-            self.add_info(self.label_name, 'int64', ())
-        elif self.label_type == 'regression':
-            self.add_info(self.label_name, 'float32', self.label_shape)
+        self.add_info(self.label_name, self.label_dtype, self.label_shape)
 
         super(DataLablePairTfrecordCreator, self).close()
 
 
 class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
     """ImageLablePairTfrecordCreator.
-
-    `label_type`:
-        'classification' -> scalar int64 label
-        'regression'     -> scalar or vector float32 label
 
     `encode_type`: in [None, 'png', 'jpg', 'jpeg']
     `quality`: for 'jpg' or 'jpeg'
@@ -234,10 +241,12 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         2: GZIP
     """
 
-    def __init__(self, save_path, label_type, encode_type, quality=95,
-                 data_name='data', label_name='label', compression_type=0):
+    def __init__(self, save_path, encode_type, quality=95,
+                 data_name='data', label_name='label',
+                 compression_type=0, overwrite_existing=False):
         super(ImageLablePairTfrecordCreator, self).__init__(
-            save_path, None, None, label_type, (), data_name, label_name, compression_type)
+            save_path, None, None, data_name, label_name,
+            compression_type, overwrite_existing)
 
         if isinstance(encode_type, str):
             encode_type = encode_type.lower()
@@ -245,7 +254,6 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
             ("`encode_type` should be in the list of"
              " [None, 'png', 'jpg', 'jpeg']!")
 
-        self.info_built = False
         self.encode_type = encode_type
         self.quality = quality
 
@@ -261,16 +269,13 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         if data.ndim == 2:
             data.shape = data.shape + (1,)
 
-        if not self.info_built:
+        if self.data_shape is None:
             self.data_shape = data.shape
             if self.encode_type is None:
                 self.data_dtype_or_format = data.dtype.name
             else:
                 self.data_dtype_or_format = self.encode_type
-            self.label_shape = label.shape
-
-        assert data.shape == self.data_shape, \
-            'shapes of `data`s are inconsistent!'
+            self.check_data = False
 
         # tobytes
         if self.encode_type is not None:
@@ -288,13 +293,15 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
             elif self.encode_type == 'png':
                 data.save(byte, 'PNG')
             data = byte.getvalue()
+        else:
+            data = data.tobytes()
 
         super(ImageLablePairTfrecordCreator, self).add(data, label)
 
 
 def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
                    shuffle=True, num_threads=16, min_after_dequeue=5000,
-                   allow_smaller_final_batch=False, scope=None, compression_type=0):
+                   scope=None, compression_type=0):
     """Tfrecord batch ops.
 
     info_list:
@@ -344,18 +351,14 @@ def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
         # batch datas
         if shuffle:
             capacity = min_after_dequeue + (num_threads + 1) * batch_size
-            data_batch = tf.train.shuffle_batch(
-                data_dict,
-                batch_size=batch_size,
-                capacity=capacity,
-                min_after_dequeue=min_after_dequeue,
-                num_threads=num_threads,
-                allow_smaller_final_batch=allow_smaller_final_batch)
+            data_batch = tf.train.shuffle_batch(data_dict,
+                                                batch_size=batch_size,
+                                                capacity=capacity,
+                                                min_after_dequeue=min_after_dequeue,
+                                                num_threads=num_threads)
         else:
-            data_batch = tf.train.batch(
-                data_dict,
-                batch_size=batch_size,
-                allow_smaller_final_batch=allow_smaller_final_batch)
+            data_batch = tf.train.batch(data_dict,
+                                        batch_size=batch_size)
 
         return data_batch, data_num, fields
 
@@ -369,8 +372,8 @@ class TfrecordData(object):
     """
 
     def __init__(self, tfrecord_path, batch_size, preprocess_fns={},
-                 shuffle=True, num_threads=16, min_after_dequeue=5000,
-                 allow_smaller_final_batch=False, scope=None):
+                 shuffle=True, num_threads=16, min_after_dequeue=5000, scope=None):
+        # info
         tfrecord_info_file = os.path.join(tfrecord_path, 'info.txt')
         tfrecord_file = os.path.join(tfrecord_path, 'data.tfrecord')
 
@@ -398,17 +401,17 @@ class TfrecordData(object):
             else:
                 compression_type = 0
 
+        # graph
         self.graph = tf.Graph()  # declare ops in a separated graph
         with self.graph.as_default():
             # TODO
             # There are some strange errors if the gpu device is the
             # same with the main graph, but cpu device is ok. I don't know why...
             with tf.device('/cpu:0'):
-                self._batch_ops, self._data_num, self._fields = \
+                self.batch_ops, self.data_num, self._fields = \
                     tfrecord_batch(tfrecord_file, info_list, batch_size,
                                    preprocess_fns, shuffle, num_threads,
-                                   min_after_dequeue, allow_smaller_final_batch,
-                                   scope, compression_type)
+                                   min_after_dequeue, scope, compression_type)
 
         print(' [*] TfrecordData: create session!')
 
@@ -419,17 +422,34 @@ class TfrecordData(object):
         self.threads = tf.train.start_queue_runners(sess=self.sess,
                                                     coord=self.coord)
 
+        # iterator
+        self.batch_num_per_epoch = (self.data_num + batch_size - 1) // batch_size
+        self.current_batch_id = 0
+
     def __len__(self):
-        return self._data_num
+        return self.data_num
 
     def batch(self, fields=None):
-        batch_data = self.sess.run(self._batch_ops)
+        batch_data = self.sess.run(self.batch_ops)
         if fields is None:
-            fields = self._fields
-        if isinstance(fields, (list, tuple)):
+            # return a dict
+            return batch_data
+        elif isinstance(fields, (list, tuple)):
             return [batch_data[field] for field in fields]
         else:
             return batch_data[fields]
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current_batch_id >= self.batch_num_per_epoch:
+            self.current_batch_id = 0
+            raise StopIteration
+        self.current_batch_id += 1
+        return self.batch()
+
+    next = __next__
 
     def fields(self):
         return self._fields
