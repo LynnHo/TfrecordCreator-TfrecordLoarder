@@ -30,13 +30,13 @@ def load_regression():
     print('Load tfrecord for regression!')
     TR = tfrecord.TfrecordData(
         tfrecord_path='regression_tfrecord',
-        batch_size=5,
+        batch_size=1,
         shuffle=False)
     fields = TR.fields()
     print('fields:', fields)
 
-    for i in range(2):
-        img_batch, targets_batch = TR.batch(['img', 'targets'])
+    for batch in TR:
+        img_batch, targets_batch = batch['img'], batch['target']
         for img, targets in zip(img_batch, targets_batch):
             plt.imshow(img)
             print('targets:', targets)
