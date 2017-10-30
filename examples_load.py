@@ -18,8 +18,8 @@ def load_classification():
     fields = TR.fields()
     print('fields:', fields)
 
-    for i in range(2):
-        img_batch, class_batch = TR.batch(['img', 'class'])
+    for batch in TR:
+        img_batch, class_batch = batch['img'], batch['class']
         for img, clc in zip(img_batch, class_batch):
             plt.imshow(img)
             plt.title('class: %d' % clc)
@@ -36,7 +36,7 @@ def load_regression():
     print('fields:', fields)
 
     for batch in TR:
-        img_batch, targets_batch = batch['img'], batch['target']
+        img_batch, targets_batch = batch['img'], batch['targets']
         for img, targets in zip(img_batch, targets_batch):
             plt.imshow(img)
             print('targets:', targets)
