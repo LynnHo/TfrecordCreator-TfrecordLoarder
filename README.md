@@ -11,8 +11,7 @@
     ```python
     writer = tfrecord.ImageLablePairTfrecordCreator(
         save_path='classification_tfrecord',
-        label_type='classification',
-        encode_type=None,
+        encode_type='jpg',
         data_name='img',
         label_name='class',
         compression_type=0)
@@ -28,7 +27,13 @@
         shuffle=True,
         num_threads=4)
 
-    img_batch, class_batch = TR.batch(['img', 'class'])
+    for i in range(iter):
+        img_batch, class_batch = TR.batch(['img', 'class'])
+    
+    or
+
+    for batch in TR:
+        img_batch, class_batch = batch['img'], batch['class']
     ```
     - preprocessing
         ```python
