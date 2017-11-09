@@ -15,7 +15,7 @@
         data_name='img',
         compression_type=0)
 
-    writer.add(np.array(img), {"class":np.array(label)})
+    writer.add(np.array(img), {"class": np.array(label)})
     ```
 
 - load a tfrecord and get a batch
