@@ -56,7 +56,7 @@ def regression():
 
     # dump data and label
     for img, label in zip(imgs, regression_labels):
-        writer.add(np.array(img), {"target": np.array(label).astype(np.float32)})
+        writer.add(np.array(img), {"targets": np.array(label).astype(np.float32)})
 
     writer.close()
 
@@ -74,7 +74,7 @@ def multiple_label():
 
     # dump data and label
     for img, clc_label, reg_label in zip(imgs, classification_labels, regression_labels):
-        writer.add(np.array(img), {"target": np.array(reg_label).astype(np.float32),
+        writer.add(np.array(img), {"targets": np.array(reg_label).astype(np.float32),
                                    "class": np.array(clc_label)})
 
     writer.close()
