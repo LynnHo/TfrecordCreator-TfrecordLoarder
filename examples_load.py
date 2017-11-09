@@ -32,7 +32,7 @@ def load_regression():
     print('Load tfrecord for regression!')
     TR = tfrecord.TfrecordData(
         tfrecord_path='regression_tfrecord',
-        batch_size=1,
+        batch_size=2,
         shuffle=False)
     fields = TR.fields()
     print('fields:', fields)
@@ -54,7 +54,7 @@ def load_multi_label():
 
     print('Load tfrecord for multiple label task!')
     TR = tfrecord.TfrecordData(
-        tfrecord_path='multi_label_tfrecord',
+        tfrecord_path='multiple_label_tfrecord',
         batch_size=3,
         shuffle=False,
         preprocess_fns={
@@ -63,7 +63,7 @@ def load_multi_label():
     fields = TR.fields()
     print('fields:', fields)
 
-    for i in range(10):
+    for i in range(4):
         img_batch, class_batch, targets_batch = TR.batch(['img', 'class', 'targets'])
         for img, clc, targets in zip(img_batch, class_batch, targets_batch):
             plt.imshow(img)
