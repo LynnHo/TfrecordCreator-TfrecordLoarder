@@ -13,10 +13,9 @@
         save_path='classification_tfrecord',
         encode_type='jpg',
         data_name='img',
-        label_name='class',
         compression_type=0)
 
-    writer.add(np.array(img), np.array(label))
+    writer.add(np.array(img), {"class":np.array(label)")
     ```
 
 - load a tfrecord and get a batch
