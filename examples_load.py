@@ -7,12 +7,14 @@ import tensorflow as tf
 
 import tfrecord
 
+print(tf.__version__)
+
 
 def load_classification():
     print('Load tfrecord for classification!')
     TR = tfrecord.TfrecordData(
         tfrecord_path='classification_tfrecord',
-        batch_size=5,
+        batch_size=10,
         shuffle=True,
         num_threads=4)
     fields = TR.fields()
@@ -22,7 +24,7 @@ def load_classification():
         img_batch, class_batch = batch['img'], batch['class']
         for img, clc in zip(img_batch, class_batch):
             plt.imshow(img)
-            plt.title('class: %d' % clc)
+            print('class: %d' % clc)
             plt.show()
 
 
@@ -53,7 +55,7 @@ def load_multi_label():
     print('Load tfrecord for multiple label task!')
     TR = tfrecord.TfrecordData(
         tfrecord_path='multi_label_tfrecord',
-        batch_size=5,
+        batch_size=3,
         shuffle=False,
         preprocess_fns={
             'img': img_preprecess_fn
@@ -61,7 +63,7 @@ def load_multi_label():
     fields = TR.fields()
     print('fields:', fields)
 
-    for i in range(2):
+    for i in range(10):
         img_batch, class_batch, targets_batch = TR.batch(['img', 'class', 'targets'])
         for img, clc, targets in zip(img_batch, class_batch, targets_batch):
             plt.imshow(img)

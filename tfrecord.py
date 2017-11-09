@@ -33,27 +33,6 @@ class BytesTfrecordCreator(object):
         2: GZIP
     """
 
-    def __init__(self, save_path, compression_type=0, overwrite_existing=False):
-        tf_record_path = os.path.join(save_path, 'data.tfrecord')
-        if os.path.exists(save_path):
-            if os.path.exists(tf_record_path) and not overwrite_existing:
-                raise Exception('%s exists!' % tf_record_path)
-        else:
-            os.makedirs(save_path)
-
-        options = tf.python_io.TFRecordOptions(compression_type)
-        self.writer = tf.python_io.TFRecordWriter(
-            tf_record_path, options)
-        self.info_f = open(os.path.join(save_path, 'info.txt'), 'w')
-
-        self.feature_names = None
-        self.info_names = []  # is the same as self.feature_names except for item order
-        self.info_list = []
-
-        self.compression_type = compression_type
-
-        self.closed = False
-
     @staticmethod
     def bytes_feature(values):
         """Return a TF-Feature of bytes.
@@ -84,6 +63,27 @@ class BytesTfrecordCreator(object):
         for key, value in bytes_dict.items():
             feature_dict[key] = BytesTfrecordCreator.bytes_feature(value)
         return tf.train.Example(features=tf.train.Features(feature=feature_dict))
+
+    def __init__(self, save_path, compression_type=0, overwrite_existing=False):
+        tf_record_path = os.path.join(save_path, 'data.tfrecord')
+        if os.path.exists(save_path):
+            if os.path.exists(tf_record_path) and not overwrite_existing:
+                raise Exception('%s exists!' % tf_record_path)
+        else:
+            os.makedirs(save_path)
+
+        options = tf.python_io.TFRecordOptions(compression_type)
+        self.writer = tf.python_io.TFRecordWriter(
+            tf_record_path, options)
+        self.info_f = open(os.path.join(save_path, 'info.txt'), 'w')
+
+        self.feature_names = None
+        self.info_names = []  # is the same as self.feature_names except for item order
+        self.info_list = []
+
+        self.compression_type = compression_type
+
+        self.closed = False
 
     def add(self, feature_bytes_dict):
         """Add example.
@@ -159,8 +159,7 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
     """
 
     def __init__(self, save_path, data_shape=None, data_dtype_or_format=None,
-                 data_name='data', label_name='label',
-                 compression_type=0, overwrite_existing=False):
+                 data_name='data', compression_type=0, overwrite_existing=False):
         super(DataLablePairTfrecordCreator, self).__init__(save_path,
                                                            compression_type,
                                                            overwrite_existing)
@@ -173,13 +172,12 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
 
         self.data_shape = data_shape
         self.data_dtype_or_format = data_dtype_or_format
-        self.label_shape = None
-        self.label_dtype = None
+        self.label_shape_dict = {}
+        self.label_dtype_dict = {}
         self.data_name = data_name
-        self.label_name = label_name
         self.info_built = False
 
-    def add(self, data, label):
+    def add(self, data, label_dict):
         """Add example.
 
         If `self.data_shape` is initialized as None, then the `data` to be
@@ -188,22 +186,22 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
         If `self.data_shape` is not initialized as None, `data` should be given as
         byte string.
 
-        `label` should be a numpy array, shape and dtype will be inferred.
+        `label_dict` each value should be a numpy array, shape and dtype will be inferred.
         """
         if self.check_data:
-            assert isinstance(data, np.ndarray), \
-                '`data` should be numpy array!'
+            assert isinstance(data, np.ndarray), '`data` should be numpy array!'
         else:
-            assert isinstance(data, str), \
-                '`data` should be byte string!'
-        assert isinstance(label, np.ndarray), '`label` should be numpy array!'
+            assert isinstance(data, str), '`data` should be byte string!'
+        for label in label_dict.values():
+            assert isinstance(label, np.ndarray), '`label` should be numpy array!'
 
         if not self.info_built:
             if self.data_shape is None:
                 self.data_shape = data.shape
                 self.data_dtype_or_format = data.dtype.name
-            self.label_shape = label.shape
-            self.label_dtype = label.dtype.name
+            for label_name, label in label_dict.items():
+                self.label_shape_dict[label_name] = label.shape
+                self.label_dtype_dict[label_name] = label.dtype.name
             self.info_built = True
 
         if self.check_data:
@@ -213,18 +211,20 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
                 'dtype of `data` should be %s!' % self.data_dtype_or_format
             data = data.tobytes()
 
-        assert label.shape == tuple(self.label_shape), \
-            'shape of `label` should be %s!' % str(tuple(self.label_shape))
-        assert label.dtype.name == self.label_dtype, \
-            'dtype of `label` should be %s!' % self.label_dtype
-        label = label.tobytes()
+        feature_dict = {self.data_name: data}
+        for label_name, label in label_dict.items():
+            assert label.shape == tuple(self.label_shape_dict[label_name]), \
+                'shape of `%s` should be %s!' % (label_name, str(tuple(self.label_shape_dict[label_name])))
+            assert label.dtype.name == self.label_dtype_dict[label_name], \
+                'dtype of `%s` should be %s!' % (label_name, self.label_dtype_dict[label_name])
+            feature_dict[label_name] = label.tobytes()
 
-        super(DataLablePairTfrecordCreator, self).add({self.data_name: data,
-                                                       self.label_name: label})
+        super(DataLablePairTfrecordCreator, self).add(feature_dict)
 
     def close(self):
         self.add_info(self.data_name, self.data_dtype_or_format, self.data_shape)
-        self.add_info(self.label_name, self.label_dtype, self.label_shape)
+        for label_name in self.label_shape_dict.keys():
+            self.add_info(label_name, self.label_dtype_dict[label_name], self.label_shape_dict[label_name])
 
         super(DataLablePairTfrecordCreator, self).close()
 
@@ -232,8 +232,8 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
 class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
     """ImageLablePairTfrecordCreator.
 
-    `encode_type`: in [None, 'png', 'jpg', 'jpeg']
-    `quality`: for 'jpg' or 'jpeg'
+    `encode_type`: in [None, 'png', 'jpg', 'jpeg'].
+    `quality`: for 'jpg' or 'jpeg'.
 
     `compression_type`:
         0: NONE
@@ -241,12 +241,10 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         2: GZIP
     """
 
-    def __init__(self, save_path, encode_type, quality=95,
-                 data_name='data', label_name='label',
+    def __init__(self, save_path, encode_type, quality=95, data_name='data',
                  compression_type=0, overwrite_existing=False):
         super(ImageLablePairTfrecordCreator, self).__init__(
-            save_path, None, None, data_name, label_name,
-            compression_type, overwrite_existing)
+            save_path, None, None, data_name, compression_type, overwrite_existing)
 
         if isinstance(encode_type, str):
             encode_type = encode_type.lower()
@@ -257,11 +255,11 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         self.encode_type = encode_type
         self.quality = quality
 
-    def add(self, data, label):
+    def add(self, data, label_dict):
         """Add example.
 
-        `data`: H * W (* C) uint8 numpy array
-        `label`: int64 or float32 numpy array
+        `data`: H * W (* C) uint8 numpy array.
+        `label_dict`: each value should be a numpy array.
         """
         assert data.dtype == np.uint8 and data.ndim in [2, 3], \
             '`data`: H * W (* C) uint8 numpy array!'
@@ -296,7 +294,7 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         else:
             data = data.tobytes()
 
-        super(ImageLablePairTfrecordCreator, self).add(data, label)
+        super(ImageLablePairTfrecordCreator, self).add(data, label_dict)
 
 
 def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
