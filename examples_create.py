@@ -34,12 +34,11 @@ def classification():
         save_path='classification_tfrecord',
         encode_type=None,
         data_name='img',
-        label_name='class',
         compression_type=0)
 
     # dump data and label
     for img, label in zip(imgs, classification_labels):
-        writer.add(np.array(img), np.array(label))
+        writer.add(np.array(img), {"class": np.array(label)})
 
     writer.close()
 
@@ -53,12 +52,11 @@ def regression():
         encode_type='jpg',
         quality=80,
         data_name='img',
-        label_name='targets',
         compression_type=1)
 
     # dump data and label
     for img, label in zip(imgs, regression_labels):
-        writer.add(np.array(img), np.array(label).astype(np.float32))
+        writer.add(np.array(img), {"target": np.array(label).astype(np.float32)})
 
     writer.close()
 
