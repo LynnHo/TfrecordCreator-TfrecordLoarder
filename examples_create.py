@@ -61,17 +61,36 @@ def regression():
     writer.close()
 
 
-def multi_label():
+def multiple_label():
     print('Create tfrecord for multiple label task!')
 
     # create a writer
-    writer = tfrecord.BytesTfrecordCreator(
-        save_path='multi_label_tfrecord',
-        compression_type=2)
+    writer = tfrecord.ImageLablePairTfrecordCreator(
+        save_path='multiple_label_tfrecord',
+        encode_type='jpg',
+        quality=80,
+        data_name='img',
+        compression_type=1)
 
     # dump data and label
+    for img, clc_label, reg_label in zip(imgs, classification_labels, regression_labels):
+        writer.add(np.array(img), {"target": np.array(reg_label).astype(np.float32),
+                                   "class": np.array(clc_label)})
+
+    writer.close()
+
+
+def arbitrary_data():
+    print('Create tfrecord for arbitrary data!')
+
+    # create a writer
+    writer = tfrecord.BytesTfrecordCreator(
+        save_path='arbitrary_data_tfrecord',
+        compression_type=2)
+
+    # dump arbitrary data
     # Different from the easy usage of tfrecord.ImageLablePairTfrecordCreator,
-    # you should convert the data and labels to bytes by yourself and add informations
+    # you should convert the data to bytes by yourself and add informations
     for img, clc_label, reg_label in zip(imgs, classification_labels, regression_labels):
         # encode image and convert get bytes
         img_bytes = io.BytesIO()
@@ -99,4 +118,5 @@ def multi_label():
 if __name__ == '__main__':
     classification()
     regression()
-    multi_label()
+    multiple_label()
+    arbitrary_data()
