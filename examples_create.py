@@ -52,6 +52,7 @@ def regression():
         encode_type='jpg',
         quality=80,
         data_name='img',
+        block_size=2,   # each tfrecord file contains `block_size` items. If `block_size` is None, there is one tfrecord file containing all data.
         compression_type=1)
 
     # dump data and label

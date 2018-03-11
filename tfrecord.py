@@ -5,10 +5,12 @@ from __future__ import print_function
 import io
 import json
 import os
+import shutil
 
 import numpy as np
 from PIL import Image
 import tensorflow as tf
+from tflib.utils import session
 
 __metaclass__ = type
 
@@ -64,22 +66,27 @@ class BytesTfrecordCreator(object):
             feature_dict[key] = BytesTfrecordCreator.bytes_feature(value)
         return tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
-    def __init__(self, save_path, compression_type=0, overwrite_existing=False):
-        tf_record_path = os.path.join(save_path, 'data.tfrecord')
+    def __init__(self, save_path, block_size=None, compression_type=0, overwrite_existing=False):
+        self.save_path = save_path
         if os.path.exists(save_path):
-            if os.path.exists(tf_record_path) and not overwrite_existing:
-                raise Exception('%s exists!' % tf_record_path)
+            if not overwrite_existing:
+                raise Exception('%s exists!' % save_path)
+            else:
+                shutil.rmtree(save_path)
+                os.makedirs(save_path)
         else:
             os.makedirs(save_path)
 
-        options = tf.python_io.TFRecordOptions(compression_type)
-        self.writer = tf.python_io.TFRecordWriter(
-            tf_record_path, options)
+        self.options = tf.python_io.TFRecordOptions(compression_type)
         self.info_f = open(os.path.join(save_path, 'info.txt'), 'w')
 
         self.feature_names = None
         self.info_names = []  # is the same as self.feature_names except for item order
         self.info_list = []
+
+        self.data_num = 0
+        self.block_num = 0
+        self.block_size = [block_size, 2147483647][block_size is None]
 
         self.compression_type = compression_type
 
@@ -96,6 +103,15 @@ class BytesTfrecordCreator(object):
                 'point': point_bytes
             }
         """
+        if self.data_num // self.block_size == self.block_num:
+            self.block_num += 1
+
+            if self.block_num > 1:
+                self.writer.close()
+
+            tf_record_path = os.path.join(self.save_path, 'data_%06d.tfrecord' % (self.block_num - 1))
+            self.writer = tf.python_io.TFRecordWriter(tf_record_path, self.options)
+
         if self.feature_names is None:
             self.feature_names = feature_bytes_dict.keys()
         else:
@@ -104,6 +120,7 @@ class BytesTfrecordCreator(object):
 
         tfexample = BytesTfrecordCreator.bytes_tfexample(feature_bytes_dict)
         self.writer.write(tfexample.SerializeToString())
+        self.data_num += 1
 
     def add_info(self, name, dtype_or_format, shape):
         """Add feature informations.
@@ -128,7 +145,8 @@ class BytesTfrecordCreator(object):
             "Feature informations should be added by function 'add_info(...)!'"
 
         # save info
-        self.info_list.append({'compression_type': self.compression_type})
+        self.info_list.append({'data_num': self.data_num,
+                               'compression_type': self.compression_type})
         info_str = json.dumps(self.info_list)
         info_str = info_str.replace('}, {', '},\n {')
         self.info_f.write(info_str)
@@ -159,8 +177,9 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
     """
 
     def __init__(self, save_path, data_shape=None, data_dtype_or_format=None,
-                 data_name='data', compression_type=0, overwrite_existing=False):
+                 data_name='data', block_size=None, compression_type=0, overwrite_existing=False):
         super(DataLablePairTfrecordCreator, self).__init__(save_path,
+                                                           block_size,
                                                            compression_type,
                                                            overwrite_existing)
         if data_shape is not None:
@@ -242,9 +261,9 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
     """
 
     def __init__(self, save_path, encode_type, quality=95, data_name='data',
-                 compression_type=0, overwrite_existing=False):
+                 block_size=None, compression_type=0, overwrite_existing=False):
         super(ImageLablePairTfrecordCreator, self).__init__(
-            save_path, None, None, data_name, compression_type, overwrite_existing)
+            save_path, None, None, data_name, block_size, compression_type, overwrite_existing)
 
         if isinstance(encode_type, str):
             encode_type = encode_type.lower()
@@ -297,7 +316,7 @@ class ImageLablePairTfrecordCreator(DataLablePairTfrecordCreator):
         super(ImageLablePairTfrecordCreator, self).add(data, label_dict)
 
 
-def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
+def tfrecord_batch(tfrecord_files, info_list, batch_size, preprocess_fns={},
                    shuffle=True, num_threads=16, min_after_dequeue=5000,
                    scope=None, compression_type=0):
     """Tfrecord batch ops.
@@ -314,10 +333,6 @@ def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
     with tf.name_scope(scope, 'tfrecord_batch'):
         options = tf.python_io.TFRecordOptions(compression_type)
 
-        data_num = 0
-        for record in tf.python_io.tf_record_iterator(tfrecord_file, options):
-            data_num += 1
-
         features = {}
         fields = []
         for info in info_list:
@@ -326,11 +341,12 @@ def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
 
         # read the next record (there is only one tfrecord file in the file queue)
         _, serialized_example = tf.TFRecordReader(options=options).read(
-            tf.train.string_input_producer([tfrecord_file]))
+            tf.train.string_input_producer(tfrecord_files,
+                                           shuffle=shuffle,
+                                           capacity=len(tfrecord_files)))
 
         # parse the record
-        features = tf.parse_single_example(serialized_example,
-                                           features=features)
+        features = tf.parse_single_example(serialized_example, features=features)
 
         # decode, set shape and preprocess
         data_dict = {}
@@ -355,10 +371,9 @@ def tfrecord_batch(tfrecord_file, info_list, batch_size, preprocess_fns={},
                                                 min_after_dequeue=min_after_dequeue,
                                                 num_threads=num_threads)
         else:
-            data_batch = tf.train.batch(data_dict,
-                                        batch_size=batch_size)
+            data_batch = tf.train.batch(data_dict, batch_size=batch_size)
 
-        return data_batch, data_num, fields
+        return data_batch, fields
 
 
 class TfrecordData(object):
@@ -373,11 +388,16 @@ class TfrecordData(object):
                  shuffle=True, num_threads=16, min_after_dequeue=5000, scope=None):
         # info
         tfrecord_info_file = os.path.join(tfrecord_path, 'info.txt')
-        tfrecord_file = os.path.join(tfrecord_path, 'data.tfrecord')
+        tfrecord_files = sorted(os.listdir(tfrecord_path))
+        tfrecord_files.remove('info.txt')
+        tfrecord_files = [os.path.join(tfrecord_path, t) for t in tfrecord_files]
 
         with open(tfrecord_info_file) as f:
             try:  # for new version
                 info_list = json.load(f)
+                for info in info_list[0:-1]:
+                    info['decoder'] = DECODERS[info['dtype_or_format']]['decoder']
+                    info['decode_param'] = DECODERS[info['dtype_or_format']]['decode_param']
             except:
                 f.seek(0)
                 info_list = ''
@@ -385,19 +405,12 @@ class TfrecordData(object):
                     info_list += line.strip('\n')
                 info_list = eval(info_list)
 
-        try:  # for new version
-            for info in info_list:
-                info['decoder'] = DECODERS[info['dtype_or_format']]['decoder']
-                info['decode_param'] = \
-                    DECODERS[info['dtype_or_format']]['decode_param']
-        except:
-            pass
-        finally:
-            if 'compression_type' in info_list[-1].keys():
-                compression_type = info_list[-1]['compression_type']
-                info_list[-1:] = []
-            else:
-                compression_type = 0
+        self.data_num = info_list[-1]['data_num']
+        compression_type = info_list[-1]['compression_type']
+        info_list[-1:] = []
+
+        # shapes
+        self.shapes = {info['name']: tuple(info['shape']) for info in info_list}
 
         # graph
         self.graph = tf.Graph()  # declare ops in a separated graph
@@ -406,10 +419,9 @@ class TfrecordData(object):
             # There are some strange errors if the gpu device is the
             # same with the main graph, but cpu device is ok. I don't know why...
             with tf.device('/cpu:0'):
-                self.batch_ops, self.data_num, self._fields = \
-                    tfrecord_batch(tfrecord_file, info_list, batch_size,
-                                   preprocess_fns, shuffle, num_threads,
-                                   min_after_dequeue, scope, compression_type)
+                self.batch_ops, self._fields = tfrecord_batch(tfrecord_files, info_list, batch_size,
+                                                              preprocess_fns, shuffle, num_threads,
+                                                              min_after_dequeue, scope, compression_type)
 
         print(' [*] TfrecordData: create session!')
 
@@ -426,6 +438,9 @@ class TfrecordData(object):
 
     def __len__(self):
         return self.data_num
+
+    def n_batch(self):
+        return self.batch_num_per_epoch
 
     def batch(self, fields=None):
         batch_data = self.sess.run(self.batch_ops)
@@ -451,6 +466,12 @@ class TfrecordData(object):
 
     def fields(self):
         return self._fields
+
+    def shape(self, field=None):
+        if field is None:
+            return self.shapes
+        else:
+            return self.shapes[field]
 
     def __del__(self):
         print(' [*] TfrecordData: stop threads and close session!')

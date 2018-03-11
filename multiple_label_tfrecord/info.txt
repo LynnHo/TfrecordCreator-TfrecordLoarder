@@ -1,4 +1,4 @@
 [{"dtype_or_format": "jpg", "shape": [128, 128, 3], "name": "img"},
  {"dtype_or_format": "float32", "shape": [10], "name": "targets"},
  {"dtype_or_format": "int64", "shape": [], "name": "class"},
- {"compression_type": 1}]
+ {"data_num": 10, "compression_type": 1}]
