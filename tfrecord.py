@@ -10,7 +10,6 @@ import shutil
 import numpy as np
 from PIL import Image
 import tensorflow as tf
-from tflib.utils import session
 
 __metaclass__ = type
 
@@ -210,7 +209,7 @@ class DataLablePairTfrecordCreator(BytesTfrecordCreator):
         if self.check_data:
             assert isinstance(data, np.ndarray), '`data` should be numpy array!'
         else:
-            assert isinstance(data, str), '`data` should be byte string!'
+            assert isinstance(data, (str, bytes)), '`data` should be byte string!'
         for label in label_dict.values():
             assert isinstance(label, np.ndarray), '`label` should be numpy array!'
 
